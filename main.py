@@ -1,4 +1,16 @@
 """
+Round-robin behaviour
+---------------------
+For countries that have BOTH V1 and V2 data, each request alternates:
+
+    Request 1 -> v1 (all_data.txt)
+    Request 2 -> v2 (v2_real_addresses.txt - REAL OSM address)
+    Request 3 -> v1
+    Request 4 -> v2
+    ...
+
+
+
 Endpoint
 --------
     GET /country={country_name}
@@ -26,18 +38,18 @@ from typing import Optional
 import requests
 from fastapi import FastAPI, HTTPException, Query
 
-REMOTE_URL = "https://github.com/Xirrod/Address_Faker/releases/download/V1/all_data.txt"
+REMOTE_URL = "https://github.com/xirrod/Address_Facker/releases/latest/download/all_data.txt"
 
 
-ALLOWED_COUNTRIES = {
-    "Australia",
-    "India",
-    "France",
-    "United Kingdom",
-    "Canada",
-    "USA",
-    "Germany",
+ALL_COUNTRIES = {
+    "Australia", "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus",
+    "Czech Republic", "Denmark", "Estonia", "Finland", "France", "Germany",
+    "Greece", "Hungary", "Iceland", "India", "Ireland", "Italy", "Latvia",
+    "Lithuania", "Luxembourg", "Malta", "Netherlands", "Norway", "Poland",
+    "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden",
+    "Switzerland", "United Kingdom", "USA", "Canada",
 }
+
 HERE = Path(__file__).resolve().parent
 V1_FILE = HERE / "data" / "all_data.txt"
 V2_FILE = HERE / "v2_real_addresses.txt"
@@ -47,30 +59,80 @@ FIELDS = ("country", "full_name", "address", "phone", "postal_code", "email")
 app = FastAPI(
     title="Random Person Data API",
     description="Serves random fake-but-format-valid person records by country. "
-                "Round-robin between real OSM addresses and synthetic-but-real-street records. "
-                "Limited to: Australia, India, France, UK, Canada, USA, Germany.",
-    version="3.1.0",
+                "Round-robin between real OSM addresses (V2) and synthetic-with-real-streets (V1) "
+                "where V2 exists; V1-only for the other countries. "
+                "Supports all 35 countries in the V1 dataset.",
+    version="4.0.0",
 )
 
+
+
 COUNTRY_ALIASES = {
+    # English-speaking
     "uk": "United Kingdom",
     "britain": "United Kingdom",
     "great britain": "United Kingdom",
     "england": "United Kingdom",
+    "scotland": "United Kingdom",
+    "wales": "United Kingdom",
     "us": "USA",
     "united states": "USA",
     "united states of america": "USA",
     "america": "USA",
-    "de": "Germany",
-    "deutschland": "Germany",
-    "deutschland": "Germany",
-    "fr": "France",
-    "in": "India",
     "ca": "Canada",
     "au": "Australia",
+    "in": "India",
+    "ie": "Ireland",
+    # German-speaking
+    "de": "Germany",
+    "deutschland": "Germany",
+    "at": "Austria",
+    "osterreich": "Austria",
+    "ch": "Switzerland",
+    "swiss": "Switzerland",
+    # French
+    "fr": "France",
+    "be": "Belgium",
+    "lu": "Luxembourg",
+    # Dutch
+    "nl": "Netherlands",
+    "holland": "Netherlands",
+    "nederland": "Netherlands",
+    # Nordic
+    "se": "Sweden",
+    "sverige": "Sweden",
+    "no": "Norway",
+    "norge": "Norway",
+    "dk": "Denmark",
+    "danmark": "Denmark",
+    "fi": "Finland",
+    "is": "Iceland",
+    # Iberian
+    "es": "Spain",
+    "espana": "Spain",
+    "pt": "Portugal",
+    # Italian
+    "it": "Italy",
+    "italia": "Italy",
+    # Eastern Europe
+    "pl": "Poland",
+    "polska": "Poland",
+    "cz": "Czech Republic",
+    "czechia": "Czech Republic",
+    "sk": "Slovakia",
+    "si": "Slovenia",
+    "hu": "Hungary",
+    "ro": "Romania",
+    "bg": "Bulgaria",
+    "hr": "Croatia",
+    "lt": "Lithuania",
+    "lv": "Latvia",
+    "ee": "Estonia",
+    "gr": "Greece",
+    "ellada": "Greece",
+    "mt": "Malta",
+    "cy": "Cyprus",
 }
-
-
 
 def download_v1_file(target: Path = V1_FILE, url: str = REMOTE_URL) -> bool:
    
@@ -94,7 +156,7 @@ def download_v1_file(target: Path = V1_FILE, url: str = REMOTE_URL) -> bool:
     print()
 
     try:
-        
+        # Stream the response so we don't load 184MB into memory
         with requests.get(url, stream=True, timeout=600,
                           headers={"User-Agent": "RandomDataValidator/3.1"}) as r:
             r.raise_for_status()
@@ -135,10 +197,9 @@ def download_v1_file(target: Path = V1_FILE, url: str = REMOTE_URL) -> bool:
                 pass
         return False
 
-
-
 class DataStore:
     
+
     def __init__(self, v1_path: Path, v2_path: Path):
         self.v1_path = v1_path
         self.v2_path = v2_path
@@ -164,7 +225,7 @@ class DataStore:
             lambda: {"v1": 0, "v2": 0, "total": 0}
         )
 
-    
+
     def _load_v2(self) -> None:
         if not self.v2_path.exists():
             print(f"[!] V2 file not found: {self.v2_path}")
@@ -176,11 +237,11 @@ class DataStore:
                 if not line or line.startswith("#"):
                     continue
                 country = line.split("|", 1)[0]
-                if country in ALLOWED_COUNTRIES:
+                if country in ALL_COUNTRIES:
                     per_country[country].append(line)
         total_before_dedupe = 0
         total_after_dedupe = 0
-        for c in ALLOWED_COUNTRIES:
+        for c in ALL_COUNTRIES:
             recs = per_country.get(c, [])
             total_before_dedupe += len(recs)
             seen_addrs: set[str] = set()
@@ -217,20 +278,20 @@ class DataStore:
                 if not line or line.startswith("#"):
                     continue
                 country = line.split("|", 1)[0]
-                if country not in ALLOWED_COUNTRIES:
+                if country not in ALL_COUNTRIES:
                     continue
                 if country != last_country:
                     country_starts[country] = line_no
-                    if last_country is not None and last_country in ALLOWED_COUNTRIES:
+                    if last_country is not None and last_country in ALL_COUNTRIES:
                         self.v1_index[last_country] = (country_starts[last_country], line_no - 1)
                     last_country = country
-        if last_country is not None and last_country in ALLOWED_COUNTRIES and last_country not in self.v1_index:
+        if last_country is not None and last_country in ALL_COUNTRIES and last_country not in self.v1_index:
             self.v1_index[last_country] = (country_starts[last_country], line_no)
         total = sum(e - s + 1 for s, e in self.v1_index.values())
         print(f"[+] V1 indexed: {self.v1_path}")
         print(f"[+] V1 records available for the 7 countries: {total:,}")
 
-   
+    
     def _ensure_v1_pool(self, country: str) -> bool:
         if country in self.v1_pools:
             return True
@@ -253,7 +314,7 @@ class DataStore:
         self.v1_exhausted_once[country] = False
         return True
 
-   
+    
     def init(self) -> None:
         # Load V2 (always local, small file)
         self._load_v2()
@@ -273,17 +334,15 @@ class DataStore:
         if self.v1_path.exists():
             self._build_v1_index()
 
-        print(f"[+] Allowlist: {sorted(ALLOWED_COUNTRIES)}")
+        print(f"[+] Countries supported: {sorted(ALL_COUNTRIES)}")
         print(f"[+] V2 pools ready: {sum(len(v) for v in self.v2_pools.values()):,} real-OSM records")
         if self.v1_index:
             print(f"[+] V1 indexed (lazy-load on first request): {self.v1_path}")
         print(f"[+] Serving strategy: round-robin V1 <-> V2 (alternating per request)")
 
-    # -----------------------------------------------------------------
-    # Public: get one record for a country (round-robin)
-    # -----------------------------------------------------------------
+    
     def get_random(self, country: str) -> Optional[dict]:
-      
+        
         key = self._resolve_country(country)
         if key is None:
             return None
@@ -299,14 +358,15 @@ class DataStore:
 
             record = self._pop_from(key, preferred) or self._pop_from(key, fallback)
             if record is None:
-               
+                # Both pools empty - try to re-shuffle V1 (and V2 if it was exhausted)
                 self._refill_v1(key)
                 self._refill_v2(key)
                 record = self._pop_from(key, preferred) or self._pop_from(key, fallback)
             if record is None:
                 return None
 
-            
+            # Track which source actually served (could be different from preferred
+            # if we fell through)
             source_tag = "v2_real_osm" if record[0] == "v2" else "v1_synthetic"
             self.served_count[key][record[0]] += 1
             return self._parse(record[1], source=source_tag)
@@ -361,15 +421,13 @@ class DataStore:
         random.shuffle(unique)
         self.v2_pools[country] = unique
 
-    # -----------------------------------------------------------------
-    # Country name resolution (case-insensitive + aliases)
-    # -----------------------------------------------------------------
+    
     def _resolve_country(self, country: str) -> Optional[str]:
         country = country.strip()
-        if country in ALLOWED_COUNTRIES:
+        if country in ALL_COUNTRIES:
             return country
         low = country.lower()
-        for k in ALLOWED_COUNTRIES:
+        for k in ALL_COUNTRIES:
             if k.lower() == low:
                 return k
         if low in COUNTRY_ALIASES:
@@ -385,12 +443,10 @@ class DataStore:
         out["source"] = source
         return out
 
-    # -----------------------------------------------------------------
-    # /countries status endpoint
-    # -----------------------------------------------------------------
+    
     def status(self) -> dict:
         out = {}
-        for c in sorted(ALLOWED_COUNTRIES):
+        for c in sorted(ALL_COUNTRIES):
             v2_size = len(self.v2_pools.get(c, []))
             v1_size = len(self.v1_pools.get(c, [])) if c in self.v1_pools else "not-loaded"
             v1_total = (self.v1_index[c][1] - self.v1_index[c][0] + 1) if c in self.v1_index else 0
@@ -408,6 +464,7 @@ class DataStore:
             }
         return out
 
+
 store = DataStore(V1_FILE, V2_FILE)
 
 
@@ -415,14 +472,13 @@ store = DataStore(V1_FILE, V2_FILE)
 def _startup():
     store.init()
 
-
 @app.get("/")
 def root():
     """Service info."""
     return {
         "service": "Random Person Data API (v3.1 - round-robin + auto-download)",
         "endpoint": "/country={country_name}",
-        "allowed_countries": sorted(ALLOWED_COUNTRIES),
+        "all_countries": sorted(ALL_COUNTRIES),
         "data_sources": {
             "v1": {
                 "path": str(V1_FILE),
@@ -452,13 +508,13 @@ def root():
 
 @app.get("/country={country_name}")
 def get_person(country_name: str):
-   
+    
     rec = store.get_random(country_name)
     if rec is None:
         raise HTTPException(
             status_code=404,
             detail=f"Country {country_name!r} not available. "
-                   f"This API only serves: {sorted(ALLOWED_COUNTRIES)}. "
+                   f"This API supports: {sorted(ALL_COUNTRIES)}. "
                    f"Try /country=USA or /country=Germany."
         )
     return rec
@@ -468,17 +524,17 @@ def get_person(country_name: str):
 def random_any(
     country: Optional[str] = Query(None, description="Optional country filter (must be in allowlist)"),
 ):
-
+    
     if country:
         rec = store.get_random(country)
         if rec is None:
             raise HTTPException(
                 status_code=404,
                 detail=f"Country {country!r} not available. "
-                       f"Allowed: {sorted(ALLOWED_COUNTRIES)}",
+                       f"Allowed: {sorted(ALL_COUNTRIES)}",
             )
         return rec
-    key = random.choice(sorted(ALLOWED_COUNTRIES))
+    key = random.choice(sorted(ALL_COUNTRIES))
     rec = store.get_random(key)
     if rec is None:
         raise HTTPException(status_code=503, detail="No data loaded")
@@ -501,6 +557,7 @@ def healthz():
         "remote_url": REMOTE_URL,
         "strategy": "round-robin",
     }
+
 
 
 if __name__ == "__main__":

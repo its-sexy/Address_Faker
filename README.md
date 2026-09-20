@@ -17,8 +17,8 @@ Powered by **OpenStreetMap** real street data + **libphonenumber**-validated pho
 <br>
 
 ![Records](https://img.shields.io/badge/Records-1.5M+-orange?style=flat-square)
-![Real OSM Records](https://img.shields.io/badge/Real_OSM_Addresses-10%2C598-brightgreen?style=flat-square)
-![Countries](https://img.shields.io/badge/Countries-7_served_(35_in_dataset)-red?style=flat-square)
+![Real OSM Records](https://img.shields.io/badge/Real_OSM_Addresses-46%2C135-brightgreen?style=flat-square)
+![Countries](https://img.shields.io/badge/Countries-35_ALL_served-red?style=flat-square)
 ![Phone Validity](https://img.shields.io/badge/Phone_Validity-99.8%25-success?style=flat-square)
 ![Address Validity](https://img.shields.io/badge/Address_Validity-86.9%25-yellow?style=flat-square)
 ![Repo Size](https://img.shields.io/badge/Repo_Size-~3_MB_(auto--downloads_V1)-blueviolet?style=flat-square)
@@ -41,7 +41,7 @@ Powered by **OpenStreetMap** real street data + **libphonenumber**-validated pho
 - [📊 Stats](#-stats)
 - [🚀 Quick Start](#-quick-start)
 - [📡 API Endpoints](#-api-endpoints)
-- [🌍 Sample Records Per Country](#-sample-records-per-country)
+- [🌍 All 35 Countries Supported](#-all-35-countries-supported)
 - [🔄 Round-Robin Serving Strategy](#-round-robin-serving-strategy)
 - [💾 Data Sources & Auto-Download](#-data-sources--auto-download)
 - [📞 Phone Number Validation](#-phone-number-validation)
@@ -61,13 +61,14 @@ Powered by **OpenStreetMap** real street data + **libphonenumber**-validated pho
 <td width="50%" valign="top">
 
 ### 🎯 Core capabilities
-- 🌍 **35 countries** in the underlying dataset
-- 🔒 **7-country allowlist** for the live API (Australia, India, France, UK, Canada, USA, Germany)
+- 🌍 **ALL 35 countries served** (was 7, now every country in the V1 dataset)
 - 📞 **99.8% valid phone numbers** (verified with `phonenumbers` library, the same one Android/WhatsApp use)
-- 📍 **10,598 REAL OSM addresses** — house number AND street pulled directly from OpenStreetMap via the Overpass API
+- 📍 **46,135 REAL OSM addresses** — house number AND street pulled directly from OpenStreetMap via the Overpass API (all 35 countries covered)
 - 🛣️ **41,679 real street names** cached from OpenStreetMap
 - 🎭 **Localized names per country** (German `de_DE`, French `fr_FR`, Italian `it_IT`, Hindi `en_IN`, etc.)
-- 🔄 **Round-robin serving** between V1 (synthetic + real streets) and V2 (real OSM addresses)
+- 🔄 **Round-robin serving** between V1 (synthetic + real streets) and V2 (real OSM addresses) — for countries with V2 data; V1-only for the rest
+- 🌐 **40+ country aliases** — `/country=uk`, `/country=italia`, `/country=deutschland`, `/country=espana`, `/country=polska`, etc.
+- 🔁 **Proxy rotation + random User-Agents** — bypasses Overpass API rate limits using 186 pre-filtered working proxies and 22 different browser UAs
 
 </td>
 <td width="50%" valign="top">
@@ -77,9 +78,9 @@ Powered by **OpenStreetMap** real street data + **libphonenumber**-validated pho
 - 🧵 **Thread-safe** pool management with `threading.Lock`
 - 🔁 **Auto-rotate** — same address never returned twice until pool is exhausted
 - 📦 **Tiny repo (~3 MB)** — the 184 MB V1 file auto-downloads from GitHub Releases on first run
-- 🌏 **Country aliases** — `/country=uk` resolves to "United Kingdom", `/country=us` to "USA", etc.
+- 🌏 **40+ country aliases** — ISO codes, endonyms (Deutschland, Italia, Polska, etc.), and common English variants
 - 💾 **Lazy-loading** — V1 records for a country are only loaded on first request
-- 🛡️ **404 with allowlist notice** for unsupported countries
+- 🛡️ **404 with helpful message** for unknown countries
 - 🩺 **Healthcheck endpoint** at `/healthz`
 
 </td>
@@ -95,9 +96,8 @@ Powered by **OpenStreetMap** real street data + **libphonenumber**-validated pho
 | Stat | Value |
 |:---|:---|
 | 📦 Total V1 records (synthetic + real streets) | **1,499,987** |
-| 📍 Total V2 records (real OSM addresses) | **10,598** |
-| 🌍 Countries in V1 dataset | **35** |
-| 🔒 Countries served by API | **7** |
+| 📍 Total V2 records (real OSM addresses) | **46,135** |
+| 🌍 Countries served by API | **35** (all) |
 | 📞 Phone format validity | **99.8%** |
 | 📮 Address validity (Nominatim) | **86.9%** |
 | 💾 Repo size (pushed to GitHub) | **~3 MB** |
@@ -111,7 +111,7 @@ Powered by **OpenStreetMap** real street data + **libphonenumber**-validated pho
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/xirrod/Address_Facker.git
+git clone https://github.com/xirrod/Address_Facker
 cd Address_Facker
 
 # 2. Install dependencies
@@ -134,18 +134,21 @@ Then open [`http://localhost:8000`](http://localhost:8000) in your browser 🎉
 ### `GET /country={country_name}`
 
 Returns one random person record for the given country.  
-Round-robins between V1 (synthetic) and V2 (real OSM address) per request.
+For countries with V2 data, round-robins between V1 (synthetic) and V2 (real OSM address) per request.  
+For countries without V2 data, every request serves from V1.
 
 ```http
-GET /country=USA
-GET /country=Australia
-GET /country=India
-GET /country=Germany
-GET /country=France
-GET /country=UK          # alias for "United Kingdom"
-GET /country=Canada
-GET /country=us          # alias for "USA"
-GET /country=deutschland # alias for "Germany"
+GET /country=USA           GET /country=us            GET /country=america
+GET /country=Germany       GET /country=de            GET /country=deutschland
+GET /country=Italy         GET /country=it           GET /country=italia
+GET /country=Spain        GET /country=es           GET /country=espana
+GET /country=Poland       GET /country=pl           GET /country=polska
+GET /country=France       GET /country=fr
+GET /country=India        GET /country=in
+GET /country=Australia    GET /country=au
+GET /country=Canada       GET /country=ca
+GET /country=United Kingdom  GET /country=uk  GET /country=britain
+... and all other 35 countries + their aliases
 ```
 
 **Response (V1 — synthetic + real street):**
@@ -153,7 +156,7 @@ GET /country=deutschland # alias for "Germany"
 {
   "country": "USA",
   "full_name": "Jessica Carr",
-  "address": "19385 Branch Street #3, Bayamon, Kentucky, USA",
+  "address": "19385 Branch Street #3, Bayamon, Texas, USA",
   "phone": "(312) 499-0142",
   "postal_code": "28131-2841",
   "email": "jessica.carr9176@hotmail.de",
@@ -185,7 +188,7 @@ The `source` field tells you which pool served the record:
 curl http://localhost:8000/
 ```
 
-### `GET /countries` — Pool status per country
+### `GET /countries` — Pool status per country (all 35)
 Returns live stats: V2 records remaining, V1 records remaining, next source, served counts.
 ```bash
 curl http://localhost:8000/countries
@@ -193,7 +196,7 @@ curl http://localhost:8000/countries
 
 ### `GET /random?country=USA` — Random from any (or specific) country
 ```bash
-curl http://localhost:8000/random           # random country from the allowlist
+curl http://localhost:8000/random           # random country from the 35
 curl http://localhost:8000/random?country=Germany
 ```
 
@@ -215,55 +218,55 @@ curl http://localhost:8000/healthz
 
 ---
 
-## 🌍 Sample Records Per Country
+## 🌍 All 35 Countries Supported
 
-One sample record from `data/all_data.txt` for each of the 35 countries in the underlying dataset:
+The API serves **all 35 countries** in the V1 dataset. Countries marked with 📍 have real OSM addresses (V2) — those will round-robin between V1 and V2. Countries without 📍 serve from V1 only.
 
-| Country | Full Name | Address | Phone | Postal | Email |
-|:---|:---|:---|:---|:---|:---|
-| 🇦🇺 Australia | Howard Walker | 72624 Brookes Street Unit B, Toowoomba, WA | 0434 667 603 | 7852 | howard.walker6998@gmx.net |
-| 🇦🇹 Austria | Boris Hofbauer | 89302 Peregrinstraße Suite 200, Wiener Neustadt | 06689744933 | 9569 | boris_hofbauer831@laposte.net |
-| 🇧🇪 Belgium | Leona Vereecke | 52810 Vliegenstraat Apt 6, Antwerp | 0499466054 | 4313 | leona.vereecke7457@sky.com |
-| 🇧🇬 Bulgaria | Glenn Carter | 71344 Chestnut St Apt 3, Dobrich | 989391765 | 1362 | glenn.carter8381@seznam.cz |
-| 🇨🇦 Canada | Kristy Henderson | 24542 9 Avenue SW 1st Floor, Surrey | (514) 214-7793 | O2P 3A3 | kristy_henderson6953@free.fr |
-| 🇭🇷 Croatia | Zlatko Muzina | 76297 Ulica Ante Starcevica, Karlovac | 919469288 | 27957 | zlatko-muzina229@mail.com |
-| 🇨🇾 Cyprus | Alan Parker | 10528 Archiepiskopou Leontiou, Nicosia | 99121456 | 4462 | alan-parker8841@telefonica.net |
-| 🇨🇿 Czech Republic | Tomas Kopecky | 33178 Lumirova Apt 3, Hradec Králové | 704291277 | 517 06 | tomas.kopecky2170@vp.pl |
-| 🇩🇰 Denmark | Agnete Nielsen | 1561 Kong Eriks Vej Suite 102, Kolding | 23204787 | 4613 | agnete.nielsen8097@btinternet.com |
-| 🇪🇪 Estonia | Sergei Kool | 55394 Lembitu Studio, Kohtla-Järve | 56949604 | 80154 | sergei-kool8103@outlook.es |
-| 🇫🇮 Finland | Tapani Lehtinen | 25163 Tallberginkatu Apt 3, Helsinki | 0507036836 | 35035 | tapani.lehtinen3689@orange.es |
-| 🇫🇷 France | Noel Marques | 1696 Rue Parmentier #4, Toulon | 0632668451 | 12088 | noel_marques2017@volny.cz |
-| 🇩🇪 Germany | Corinna Tintzmann | 48919 Pulsnitzer Straße Apt 5, Wiesbaden | 015757573561 | 89811 | corinna_tintzmann153@ymail.com |
-| 🇬🇷 Greece | Tara Lucero | 62130 Barbara St 4th Floor, Chania | 6904584814 | 847 54 | tara_lucero1174@hotmail.com |
-| 🇭🇺 Hungary | Peter Sandor | 15996 Londoni korut Apt 7, Budapest | 706206744 | 4303 | peter-sandor2298@outlook.es |
-| 🇮🇸 Iceland | Dana Villarreal | 67473 Hofsvallagata Studio, Garðabær | 6251614 | 698 | dana_villarreal@gmail.com |
-| 🇮🇳 India | Yoshita Sarraf | 71621 D' Souza Road Unit A, Tiruvannamalai | 8306215190 | 552696 | yoshita.sarraf@alice.it |
-| 🇮🇪 Ireland | Lawrence Ashton | 25348 Rathmore Road, Cork | 0898593037 | D08 X1F2 | lawrence.ashton@outlook.com |
-| 🇮🇹 Italy | Stefania Soffici | 51507 Via della Consolata, Rimini | 3415324151 | 81848 | stefania.soffici@libero.it |
-| 🇱🇻 Latvia | Julija Lukstins | 1457 Tomsona iela 8th Floor, Rēzekne | 28018280 | 1850 | julija.lukstins@inbox.lv |
-| 🇱🇹 Lithuania | Reda Adams | 26191 A. Fromo-Guzucio g. Loft 2, Marijampolė | 64121100 | 5241 | reda_adams@yahoo.com |
-| 🇱🇺 Luxembourg | Anastasie Descamps | 38123 Rue Ditzenheck #8, Differdange | 678847033 | 3443 | anastasie.descamps@gmail.com |
-| 🇲🇹 Malta | Anna Roy | 13737 Triq l-Omnibus, Żabbar | 79240785 | ZZ 2C019 | anna.roy@gmail.com |
-| 🇳🇱 Netherlands | Lola Honing | 86192 Scheepmakersstraat #9, Utrecht | 0623336428 | 6708 IG | lola.honing@kpn.nl |
-| 🇳🇴 Norway | Ruth Moen | 80508 Ribbunggata #7, Bergen | 91147845 | 3905 | ruth.moen@telenor.no |
-| 🇵🇱 Poland | Konrad Bobel | 89710 Orlat Lwowskich #4, Olsztyn | 607100267 | 54-828 | konrad.bobel@wp.pl |
-| 🇵🇹 Portugal | Constanca Assuncao | 95321 Campo das Hortas, Castelo Branco | 914155639 | 1823-616 | constanca.assuncao@sapo.pt |
-| 🇷🇴 Romania | Casandra Clark | 20916 Strada Petofi Sandor Apt 1, Arad | 0759473129 | 234456 | casandra.clark@gmail.com |
-| 🇸🇰 Slovakia | Olga Visnovska | 7888 Jana Kovalika Apt 9, Banská Bystrica | 953870289 | 95309 | olga.visnovska@centrum.sk |
-| 🇸🇮 Slovenia | Ljudmila Tavcar | 67423 Hocka ulica Apt 3, Ptuj | 51491165 | 8726 | ljudmila.tavcar@siol.net |
-| 🇪🇸 Spain | Bienvenida Figuerola | 83001 Calle de Arias Apt 7, Murcia | 668027772 | 14566 | bienvenida.figueroa@gmail.com |
-| 🇸🇪 Sweden | Therese Ryden | 49248 Banersgatan Unit F, Umeå | 0723019353 | 544 22 | therese.ryden@telia.com |
-| 🇨🇭 Switzerland | Marcia Fankhauser | 50010 Seelandweg Unit C, Lausanne | 0798283833 | 5363 | marcia.fankhauser@bluewin.ch |
-| 🇬🇧 United Kingdom | Philip Joyce | 77248 Snow Hill Queensway Apt 10, Bradford | 07491823303 | HX4 3MW | philip.joyce@btinternet.com |
-| 🇺🇸 USA | Monica Beasley | 76219 Fairview Place North Studio C, Plano | (947) 498-4720 | 10820-0996 | monica.beasley@gmail.com |
+| # | Country | ISO | Has V2? | Sample city (region) |
+|:---:|:---|:---:|:---:|:---|
+| 1 | 🇦🇺 Australia | AU | 📍 | Sydney (New South Wales) |
+| 2 | 🇦🇹 Austria | AT | 📍 | Vienna (Vienna state) |
+| 3 | 🇧🇪 Belgium | BE | 📍 | Brussels (Brussels-Capital) |
+| 4 | 🇧🇬 Bulgaria | BG | 📍 | Sofia (Sofia City) |
+| 5 | 🇨🇦 Canada | CA | 📍 | Toronto (Ontario) |
+| 6 | 🇭🇷 Croatia | HR | 📍 | Zagreb (Zagreb County) |
+| 7 | 🇨🇾 Cyprus | CY | 📍 | Nicosia (Nicosia district) |
+| 8 | 🇨🇿 Czech Republic | CZ | 📍 | Prague (Prague) |
+| 9 | 🇩🇰 Denmark | DK | 📍 | Copenhagen (Capital Region) |
+| 10 | 🇪🇪 Estonia | EE | 📍 | Tallinn (Harju) |
+| 11 | 🇫🇮 Finland | FI | 📍 | Helsinki (Uusimaa) |
+| 12 | 🇫🇷 France | FR | 📍 | Paris (Île-de-France) |
+| 13 | 🇩🇪 Germany | DE | 📍 | Berlin (Berlin) |
+| 14 | 🇬🇷 Greece | GR | 📍 | Athens (Attica) |
+| 15 | 🇭🇺 Hungary | HU | 📍 | Budapest (Budapest) |
+| 16 | 🇮🇸 Iceland | IS | 📍 | Reykjavík (Capital Region) |
+| 17 | 🇮🇳 India | IN | 📍 | Mumbai (Maharashtra) |
+| 18 | 🇮🇪 Ireland | IE | 📍 | Dublin (Leinster) |
+| 19 | 🇮🇹 Italy | IT | 📍 | Rome (Lazio) |
+| 20 | 🇱🇻 Latvia | LV | 📍 | Riga (Riga) |
+| 21 | 🇱🇹 Lithuania | LT | 📍 | Vilnius (Vilnius County) |
+| 22 | 🇱🇺 Luxembourg | LU | 📍 | Luxembourg City (Luxembourg Canton) |
+| 23 | 🇲🇹 Malta | MT | 📍 | Valletta (South Eastern) |
+| 24 | 🇳🇱 Netherlands | NL | 📍 | Amsterdam (North Holland) |
+| 25 | 🇳🇴 Norway | NO | 📍 | Oslo (Oslo) |
+| 26 | 🇵🇱 Poland | PL | 📍 | Warsaw (Masovian) |
+| 27 | 🇵🇹 Portugal | PT | 📍 | Lisbon (Lisbon district) |
+| 28 | 🇷🇴 Romania | RO | 📍 | Bucharest (Bucharest) |
+| 29 | 🇸🇰 Slovakia | SK | 📍 | Bratislava (Bratislava) |
+| 30 | 🇸🇮 Slovenia | SI | 📍 | Ljubljana (Central Slovenia) |
+| 31 | 🇪🇸 Spain | ES | 📍 | Madrid (Community of Madrid) |
+| 32 | 🇸🇪 Sweden | SE | 📍 | Stockholm (Stockholm) |
+| 33 | 🇨🇭 Switzerland | CH | 📍 | Zurich (Zurich Canton) |
+| 34 | 🇬🇧 United Kingdom | GB / UK | 📍 | London (England) |
+| 35 | 🇺🇸 USA | US | 📍 | New York (New York) |
 
-> 💡 The live API only serves **7** of these countries (Australia, India, France, UK, Canada, USA, Germany). The full 35-country dataset lives in `data/all_data.txt` for those who want to extend the allowlist.
+> 💡 The fetcher script `scripts/fetch_all_v2.py` is running continuously to expand V2 coverage. New real OSM addresses are added incrementally to `v2_real_addresses.txt`.
 
 ---
 
 ## 🔄 Round-Robin Serving Strategy
 
-Each request to `/country={country_name}` alternates between two data sources:
+For countries that have BOTH V1 and V2 data, each request alternates between the two sources:
 
 ```
 Request 1  →  v1 (all_data.txt — synthetic, real streets + random house #)
@@ -273,30 +276,27 @@ Request 4  →  v2
 ...
 ```
 
+For countries with V1-only (no V2 data yet), every request serves from V1.
+
 When the next-up pool is exhausted, we silently fall through to the other pool. When both are empty, we re-shuffle and restart the rotation cycle.
 
-### Live demo (10 consecutive calls to `/country=USA`)
+### Live demo (4 consecutive calls to `/country=USA` — has V2)
 
 ```
-req  1: source=v1_synthetic    phone=(533) 954-1372   addr=51455 Lorraine Avenue Suite 102, Lansing, Tennessee, USA
-req  2: source=v2_real_osm     phone=(770) 651-1067   addr=1231 Race Street, Philadelphia, USA
-req  3: source=v1_synthetic    phone=(810) 264-7465   addr=46212 Gulf Freeway Frontage Road Apt 3, Elizabeth, Hawaii, USA
-req  4: source=v2_real_osm     phone=(540) 669-9401   addr=1700 Benjamin Franklin Parkway, Philadelphia, USA
-req  5: source=v1_synthetic    phone=(848) 597-4740   addr=54738 Anthony Street 8th Floor, Huntington, Ohio, USA
-req  6: source=v2_real_osm     phone=(281) 352-9350   addr=101 West Santa Clara Street, San Jose, USA
-req  7: source=v1_synthetic    phone=(313) 725-2170   addr=74971 Mercer Street 1st Floor, Sterling Heights, Kansas, USA
-req  8: source=v2_real_osm     phone=(773) 939-7363   addr=3600 Sansom Street, Philadelphia, USA
-req  9: source=v1_synthetic    phone=(636) 712-8737   addr=44254 Elfreth's Alley, Lansing, Alaska, USA
-req 10: source=v2_real_osm     phone=(414) 385-2407   addr=534 South 15th Street, Philadelphia, USA
+req 1: source=v1_synthetic    phone=(533) 954-1372   addr=51455 Lorraine Avenue Suite 102, Lansing, Tennessee, USA
+req 2: source=v2_real_osm     phone=(770) 651-1067   addr=1231 Race Street, Philadelphia, USA
+req 3: source=v1_synthetic    phone=(810) 264-7465   addr=46212 Gulf Freeway Frontage Road Apt 3, Elizabeth, Hawaii, USA
+req 4: source=v2_real_osm     phone=(540) 669-9401   addr=1700 Benjamin Franklin Parkway, Philadelphia, USA
 
   ✅ PASS: perfect round-robin (v1, v2, v1, v2, ...)
 ```
 
 ### Guarantees
 - ✅ **No duplicate addresses** within a single rotation cycle
-- ✅ **~50/50 split** between V1 and V2 records when both pools have stock
-- ✅ **Seamless fallback** — even when V2 (10,598 records) is exhausted, the API keeps serving V1 (1.5M records)
+- ✅ **~50/50 split** between V1 and V2 records when both pools have stock (for V2-enabled countries)
+- ✅ **Seamless fallback** — even when V2 is exhausted, the API keeps serving V1 (1.5M records)
 - ✅ **Auto-rotate** — pools re-shuffle and restart the cycle when both are exhausted
+- ✅ **All 35 countries supported** — V1-only for countries without V2 data yet
 
 ---
 
@@ -330,14 +330,13 @@ The download is **streamed in 1 MB chunks** (so memory usage stays low even on s
     File size: 183.1 MB
      10% (  18.3 MB / 183.1 MB)
      20% (  36.6 MB / 183.1 MB)
-     30% (  55.0 MB / 183.1 MB)
     ...
 [+] Download complete! Cached at: data/all_data.txt (183.1 MB)
 ```
 
 If the download fails (network issues, wrong URL), the API still starts and serves V2 records only.
 
-### V2 — `v2_real_addresses.txt` (10,598 records, ~1.1 MB) — **ships with the repo**
+### V2 — `v2_real_addresses.txt` (46,135 records, ~4.7 MB) — **ships with the repo**
 
 | Field | Source |
 |:---|:---|
@@ -362,14 +361,44 @@ out tags 200;
 
 | Country | Records |
 |:---|---:|
-| 🇺🇸 USA | ~2,791 |
-| 🇩🇪 Germany | ~1,440 |
-| 🇫🇷 France | ~1,425 |
-| 🇬🇧 United Kingdom | ~1,065 |
-| 🇮🇳 India | ~1,080 |
-| 🇨🇦 Canada | ~1,030 |
-| 🇦🇺 Australia | ~990 |
-| **Total** | **10,598** |
+| 🇦🇺 Australia | 3,605 |
+| 🇺🇸 USA | 2,947 |
+| 🇦🇹 Austria | 2,064 |
+| 🇮🇹 Italy | 1,678 |
+| 🇩🇪 Germany | 1,596 |
+| 🇫🇷 France | 1,582 |
+| 🇳🇴 Norway | 1,545 |
+| 🇸🇪 Sweden | 1,497 |
+| 🇪🇸 Spain | 1,487 |
+| 🇵🇱 Poland | 1,462 |
+| 🇧🇪 Belgium | 1,405 |
+| 🇪🇪 Estonia | 1,385 |
+| 🇱🇹 Lithuania | 1,361 |
+| 🇨🇿 Czech Republic | 1,300 |
+| 🇩🇰 Denmark | 1,200 |
+| 🇮🇳 India | 1,198 |
+| 🇱🇺 Luxembourg | 1,184 |
+| 🇬🇧 United Kingdom | 1,183 |
+| 🇸🇰 Slovakia | 1,167 |
+| 🇨🇦 Canada | 1,148 |
+| 🇸🇮 Slovenia | 1,131 |
+| 🇷🇴 Romania | 1,111 |
+| 🇱🇻 Latvia | 1,099 |
+| 🇵🇹 Portugal | 1,088 |
+| 🇲🇹 Malta | 1,043 |
+| 🇳🇱 Netherlands | 986 |
+| 🇭🇷 Croatia | 966 |
+| 🇫🇮 Finland | 965 |
+| 🇮🇸 Iceland | 961 |
+| 🇨🇾 Cyprus | 869 |
+| 🇭🇺 Hungary | 840 |
+| 🇧🇬 Bulgaria | 822 |
+| 🇨🇭 Switzerland | 775 |
+| 🇮🇪 Ireland | 773 |
+| 🇬🇷 Greece | 712 |
+| **Total** | **46,135** |
+
+> 💡 Run `python3 scripts/fetch_all_v2_proxy.py` to top up existing countries with more addresses. Uses proxy rotation + random User-Agents to bypass Overpass rate limits.
 
 ---
 
@@ -398,8 +427,8 @@ Final validation results:
 
 ```
 Address_Facker/
-├── main.py                       # 🚀 FastAPI app (round-robin V1<->V2, auto-download V1)
-├── v2_real_addresses.txt          # 📍 10,598 real OSM addresses (ships with repo, ~1.1 MB)
+├── main.py                       # 🚀 FastAPI app (round-robin V1<->V2, all 35 countries, auto-download V1)
+├── v2_real_addresses.txt          # 📍 46,135 real OSM addresses for all 35 countries (ships with repo, ~4.7 MB)
 ├── requirements.txt              # 📦 Python dependencies
 ├── .gitignore                    # 🚫 Excludes data/all_data.txt + Python caches
 ├── LICENSE                       # 📄 MIT License
@@ -408,7 +437,7 @@ Address_Facker/
 └── README.md                     # 📖 This file
 ```
 
-**Total repo size pushed to GitHub: ~1.3 MB** (just `main.py`, `v2_real_addresses.txt`, `requirements.txt`, `LICENSE`, `README.md`, `.gitignore`).
+**Total repo size pushed to GitHub: ~3 MB** (just `main.py`, `v2_real_addresses.txt`, `requirements.txt`, `LICENSE`, `README.md`, `.gitignore`).
 
 The 184 MB `data/all_data.txt` is hosted on GitHub Releases and auto-downloaded on first run.
 
@@ -423,16 +452,17 @@ All configuration lives at the top of `main.py`:
 # too big - 184 MB - for the regular GitHub repo).
 REMOTE_URL = "https://github.com/xirrod/Address_Facker/releases/latest/download/all_data.txt"
 
-# Only these 7 countries are served.  Requests for any other country
-# get a 404 with an allowlist notice.
-ALLOWED_COUNTRIES = {
-    "Australia",
-    "India",
-    "France",
-    "United Kingdom",
-    "Canada",
-    "USA",
-    "Germany",
+# All 35 countries supported by the API.  Any country in this set can
+# be requested via /country={country_name}.  Countries that ALSO have
+# V2 records (real OSM addresses) will be served in round-robin
+# (V1 <-> V2 alternating); countries with V1-only will serve from V1.
+ALL_COUNTRIES = {
+    "Australia", "Austria", "Belgium", "Bulgaria", "Croatia", "Cyprus",
+    "Czech Republic", "Denmark", "Estonia", "Finland", "France", "Germany",
+    "Greece", "Hungary", "Iceland", "India", "Ireland", "Italy", "Latvia",
+    "Lithuania", "Luxembourg", "Malta", "Netherlands", "Norway", "Poland",
+    "Portugal", "Romania", "Slovakia", "Slovenia", "Spain", "Sweden",
+    "Switzerland", "United Kingdom", "USA", "Canada",
 }
 ```
 
@@ -449,18 +479,6 @@ REMOTE_URL = "https://github.com/xirrod/Address_Facker/releases/download/v1.0/al
 
 # Custom URL (any HTTP server)
 REMOTE_URL = "https://my-server.com/files/all_data.txt"
-```
-
-### To extend the country allowlist
-
-Edit `ALLOWED_COUNTRIES` to add more countries from the V1 dataset:
-
-```python
-ALLOWED_COUNTRIES = {
-    "Australia", "India", "France", "United Kingdom",
-    "Canada", "USA", "Germany",
-    "Spain", "Italy", "Netherlands",  # <-- add new countries here
-}
 ```
 
 ---
@@ -519,11 +537,11 @@ The V1 dataset (`data/all_data.txt`) is too large to push directly. To update it
 
 ### Updating V2 (real OSM addresses)
 
-The `v2_real_addresses.txt` file ships with the repo (~1.1 MB). To refresh it with new OSM data:
+The `v2_real_addresses.txt` file ships with the repo (~1.5 MB). To refresh it with new OSM data:
 
-1. Use the Overpass API to pull fresh `addr:housenumber` + `addr:street` tags
-2. Replace `v2_real_addresses.txt` with the new data
-3. Commit and push
+1. Run `python3 scripts/fetch_all_v2.py` to fetch real addresses for ALL 35 countries
+2. The script saves incrementally — you can stop and resume anytime
+3. Commit and push the updated `v2_real_addresses.txt`
 
 ---
 
